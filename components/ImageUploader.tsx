@@ -54,18 +54,10 @@ export function ImageUploader({ onImageReady }: Props) {
 
   return (
     <div className="grid gap-4 rounded-3xl border border-white/10 bg-panel/80 p-6 shadow-2xl shadow-cyan-950/20 backdrop-blur">
-      <div
-        className="grid min-h-44 place-items-center rounded-2xl border border-dashed border-white/15 bg-white/5 p-6 text-center"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={onDrop}
-      >
+      <div className="grid min-h-44 place-items-center rounded-2xl border border-dashed border-white/15 bg-white/5 p-6 text-center" onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
         <div className="space-y-3">
           <p className="text-lg font-semibold">画像をアップロードまたはドラッグ＆ドロップ</p>
-          <button
-            className="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-slate-950 transition hover:scale-[1.01]"
-            onClick={() => inputRef.current?.click()}
-            type="button"
-          >
+          <button className="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-slate-950 transition hover:scale-[1.01]" onClick={() => inputRef.current?.click()} type="button">
             画像を選択
           </button>
           <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e: ChangeEvent<HTMLInputElement>) => void handleFile(e.target.files?.[0])} />

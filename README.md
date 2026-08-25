@@ -1,63 +1,66 @@
 # 画像フォレンジックAI
 
-画像を入力すると、主要要素の抽出、Web照合、比較、総合評価を行うMVPです。
+Gemini API の無料枠だけで動かす zero-cost prototype です。画像をアップロード、または画像URLを指定して、Gemini による視覚分析結果を日本語で表示します。
 
-## 技術スタック
+## 現在の機能
 
-- Next.js
-- TypeScript
-- React
-- Tailwind CSS
+- 画像アップロード
+- 画像URL入力
+- Gemini による画像解析
+- 重要要素の抽出
+- 視覚的不自然さの分析
+- AI生成 / AI編集 / 合成 / 手描き / 普通の写真 / 不確実性の推定
+- 簡潔 / 標準 / 詳細の説明切り替え
+- Demo Mode
 
-## セットアップ
+## 現在の制限
 
-1. 依存関係をインストールします。
-2. `.env.example` を `.env.local` にコピーして必要な値を設定します。
-3. `npm run dev` で起動します。
-
-## 必要なAPIキー
-
-- AI API
-- Web検索API
-- 必要に応じて画像検索API
-
-このMVPはモックモードでUI確認できます。API未設定時は開発用の簡易結果を返します。
+- reverse image search は未実装です
+- Internet/source verification はありません
+- 学術的に検証されたフォレンジック判定器ではありません
+- Gemini free-tier のレート制限があります
+- ここでの数値は証拠ベースの推定であり、確定的な証明ではありません
+- paid API は使いません
+- OpenAI API は使いません
+- SerpApi / Google Lens API は使いません
 
 ## 環境変数
 
-`.env.local` の例:
+`.env.local` に以下を設定します。
 
 ```bash
-OPENAI_API_KEY=
-BRAVE_SEARCH_API_KEY=
-NEXT_PUBLIC_USE_MOCK=true
+GEMINI_API_KEY=
+GEMINI_MODEL=
+DEMO_MODE=true
 ```
 
-## ローカル起動
+- `GEMINI_MODEL` を未設定にした場合は `gemini-3-flash` を既定値として使います
+- `DEMO_MODE=true` にすると決定的なモック結果を返します
+
+## セットアップ
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Vercel デプロイ
+## 検証コマンド
 
-1. GitHub リポジトリを Vercel に接続します。
-2. 環境変数を Vercel の Project Settings で設定します。
-3. ビルドコマンドは `npm run build`、出力先は Next.js の標準設定です。
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
 
-## 現在のMVPの制限事項
+## Vercel
 
-- ライブのAI解析は未接続です
-- Web検索の本実装は今後拡張します
-- 完全なフォレンジック判定は対象外です
+- Framework は Next.js です
+- API key は Vercel の Environment Variables に設定します
+- `GEMINI_API_KEY` はクライアントに露出しません
 
-## 今後実装可能な機能
+## セキュリティ
 
-- EXIF解析
-- Copy-Move検出
-- ELA
-- 画像逆検索
-- 画像比較の強化
-- 分析履歴
-- PDFレポート
+- 画像URLはサーバー側で取得します
+- ローカルネットワーク宛 URL は拒否します
+- アップロード画像は 10MB 上限です
+- 永続保存はしません

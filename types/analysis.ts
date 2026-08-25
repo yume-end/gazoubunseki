@@ -1,48 +1,56 @@
 export type ExplanationLevel = "brief" | "standard" | "detailed";
 
-export type AnalysisElement = {
-  id: string;
-  name: string;
+export type SuspiciousFeature = {
+  type: string;
+  strength: number;
   description: string;
-  possible_brand?: string;
-  possible_model?: string;
-  confidence: number;
-  importance: number;
-};
-
-export type SearchResult = {
-  title: string;
-  url: string;
-  imageUrl?: string;
-  description?: string;
-  brand?: string;
-  productName?: string;
 };
 
 export type ElementAnalysis = {
-  elementId: string;
-  elementName: string;
-  summary: string;
-  evidence: string[];
-  searchResults: SearchResult[];
-  bestMatch?: {
-    title: string;
-    url: string;
-    similarity: number;
+  id: string;
+  name: string;
+  description: string;
+  importance: number;
+  possibleBrand: string | null;
+  possibleModel: string | null;
+  visualConfidence: number;
+  boundingBox: { x: number; y: number; width: number; height: number } | null;
+  suspiciousFeatures: SuspiciousFeature[];
+};
+
+export type EvidenceItem = {
+  type: string;
+  strength: number;
+  description: string;
+};
+
+export type GeminiAnalysisResponse = {
+  overallAssessment: {
+    aiGeneratedScore: number;
+    aiEditedScore: number;
+    compositeScore: number;
+    handDrawnScore: number;
+    ordinaryPhotoScore: number;
+    uncertaintyScore: number;
   };
-  confidence: number;
+  elements: ElementAnalysis[];
+  globalEvidence: EvidenceItem[];
+  limitations: string[];
 };
 
 export type AnalysisReport = {
-  mode: "mock" | "live";
+  mode: "demo" | "live";
   imageSource: { type: "upload" | "url"; name: string; mimeType: string };
-  elements: AnalysisElement[];
-  elementAnalyses: ElementAnalysis[];
-  imageFindings: string[];
-  collageFindings: string[];
   summary: string;
-  aiGenerationLikelihood: number;
-  realImageLikelihood: number;
+  overallAssessment: GeminiAnalysisResponse["overallAssessment"];
+  elements: ElementAnalysis[];
+  globalEvidence: EvidenceItem[];
+  limitations: string[];
   reasons: string[];
-  rawNotes?: string;
+  diagnostics: {
+    requestCount: number;
+    durationMs: number;
+    demoMode: boolean;
+    model: string;
+  };
 };
