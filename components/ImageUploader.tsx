@@ -1,13 +1,14 @@
 "use client";
 
 import { ChangeEvent, DragEvent, useRef, useState } from "react";
-import { fileToDataUrl, validateUploadedImage } from "@/lib/image";
+import { fetchUrlAsDataUrl, fileToDataUrl, validateUploadedImage } from "@/lib/image";
 
 type Props = {
-  onImageReady: (payload: { sourceType: "upload" | "url"; name: string; mimeType: string; dataUrl: string }) => void;
+  onFileSelected: (file: File) => void | Promise<void>;
+  onUrlSubmit: (url: string) => void | Promise<void>;
 };
 
-export function ImageUploader({ onImageReady }: Props) {
+export function ImageUploader({ onFileSelected, onUrlSubmit }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -19,8 +20,7 @@ export function ImageUploader({ onImageReady }: Props) {
       setError(null);
       validateUploadedImage(file);
       setBusy(true);
-      const dataUrl = await fileToDataUrl(file);
-      onImageReady({ sourceType: "upload", name: file.name, mimeType: file.type, dataUrl });
+      await onFileSelected(file);
     } catch (err) {
       setError(err instanceof Error ? err.message : "画像の処理に失敗しました。");
     } finally {
@@ -36,10 +36,7 @@ export function ImageUploader({ onImageReady }: Props) {
     setError(null);
     setBusy(true);
     try {
-      const res = await fetch("/api/ingest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "画像URLの取得に失敗しました。");
-      onImageReady({ sourceType: "url", name: data.name, mimeType: data.mimeType, dataUrl: data.dataUrl });
+      await onUrlSubmit(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "画像URLの取得に失敗しました。");
     } finally {
@@ -72,6 +69,7 @@ export function ImageUploader({ onImageReady }: Props) {
             {busy ? "処理中..." : "URLを読み込み"}
           </button>
         </div>
+        <p className="text-xs leading-5 text-slate-400">URL入力はブラウザのCORS制約の影響を受けます。取得できない場合は、画像ファイルを直接アップロードしてください。</p>
       </div>
       {error ? <p className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-red-200">{error}</p> : null}
     </div>

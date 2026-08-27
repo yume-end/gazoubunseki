@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnalysisProgress } from "@/components/AnalysisProgress";
 import { AnalysisResult } from "@/components/AnalysisResult";
 import { ImageUploader } from "@/components/ImageUploader";
+import { analyzeImageLocally, analyzeLocally, detectWebGpuSupport } from "@/lib/analysis";
+import { fetchUrlAsDataUrl, fileToDataUrl, isLikelyImageUrl, loadImageFromDataUrl, validateUploadedImage } from "@/lib/image";
 import type { AnalysisReport, ExplanationLevel } from "@/types/analysis";
 
 export default function Page() {
@@ -12,64 +14,71 @@ export default function Page() {
   const [preview, setPreview] = useState<string | null>(null);
   const [report, setReport] = useState<AnalysisReport | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [demoMode, setDemoMode] = useState(false);
-  const [modelName, setModelName] = useState<string>("gemini-3-flash");
+  const [demoMode] = useState(() => process.env.NEXT_PUBLIC_DEMO_MODE === "true" || process.env.DEMO_MODE === "true");
+  const [webGpuAvailable, setWebGpuAvailable] = useState(false);
+  const [browserReady, setBrowserReady] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-    fetch("/api/config")
-      .then((res) => res.json())
-      .then((data: { demoMode?: boolean; model?: string }) => {
-        if (!mounted) return;
-        setDemoMode(Boolean(data.demoMode));
-        if (data.model) setModelName(data.model);
-      })
-      .catch(() => undefined);
-    return () => {
-      mounted = false;
-    };
+    setBrowserReady(true);
+    setWebGpuAvailable(detectWebGpuSupport());
   }, []);
 
-  async function handleImageReady(payload: { sourceType: "upload" | "url"; name: string; mimeType: string; dataUrl: string }) {
-    setPreview(payload.dataUrl);
+  const modelLabel = useMemo(() => (webGpuAvailable ? "browser-local-canvas + WebGPU検出" : "browser-local-canvas"), [webGpuAvailable]);
+
+  async function runAnalysis(dataUrl: string, sourceType: "upload" | "url", name: string, mimeType: string) {
+    setPreview(dataUrl);
     setError(null);
     setReport(null);
     setStep("画像を読み込みました");
-    setStep("Gemini が画像内の重要な要素を検出しています...");
+    setStep("画像の特徴を分析しています...");
 
     try {
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const data = (await response.json()) as { report?: AnalysisReport; error?: string };
-      if (!response.ok || !data.report) throw new Error(data.error ?? "解析に失敗しました。");
-      setStep("不自然な特徴を分析しました");
-      setReport(data.report);
-      setStep("総合評価を作成しています...");
+      const img = await loadImageFromDataUrl(dataUrl);
+      setStep("重要な要素を検出しています...");
+      const metrics = await analyzeImageLocally(img);
+      setStep("不自然な特徴を確認しています...");
+      const localReport = analyzeLocally(metrics, { demoMode, webGpuAvailable, imageType: mimeType, fileName: name });
+      setReport({ ...localReport, imageSource: { type: sourceType, name, mimeType } });
+      setStep("証拠を統合しています...");
+      setStep("完了");
     } catch (err) {
       setError(err instanceof Error ? err.message : "解析に失敗しました。");
       setStep("エラーが発生しました");
     }
   }
 
+  async function handleUpload(file: File) {
+    validateUploadedImage(file);
+    const dataUrl = await fileToDataUrl(file);
+    await runAnalysis(dataUrl, "upload", file.name, file.type);
+  }
+
+  async function handleUrl(url: string) {
+    if (!isLikelyImageUrl(url)) {
+      setError("有効な画像URLを入力してください。");
+      return;
+    }
+    const dataUrl = await fetchUrlAsDataUrl(url);
+    await runAnalysis(dataUrl, "url", url.split("/").pop() || "image", "image/jpeg");
+  }
+
   return (
     <main className="mx-auto flex min-h-screen max-w-7xl flex-col gap-8 px-4 py-8 md:px-8">
       <section className="grid gap-4">
         <p className="text-sm uppercase tracking-[0.35em] text-cyan-200/80">AI画像真正性分析</p>
-        <h1 className="max-w-3xl text-4xl font-black leading-tight md:text-6xl">画像フォレンジックAI</h1>
-        <p className="max-w-3xl text-base leading-7 text-muted">画像をアップロードするか、画像URLを入力してください。Gemini の無料枠を使った zero-cost prototype として、重要要素の検出と視覚的な不自然さの分析を行います。</p>
-        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-cyan-100">Web image/source verification is not included in this zero-cost prototype.</div>
-        <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">画像は解析のため Gemini API に送信されます。画像は永続保存しません。</div>
+        <h1 className="max-w-3xl text-4xl font-black leading-tight md:text-6xl">AI画像フォレンジック</h1>
+        <p className="max-w-3xl text-base leading-7 text-muted">画像の特徴を多角的に分析し、AI生成・加工・合成などの可能性を推定します。</p>
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-cyan-100">このMVPでは、アップロードした画像を外部AI APIへ送信せず、お使いのブラウザ上で解析します。</div>
+        <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">モデルの初回ダウンロードなど、必要なネットワーク通信が発生する場合があります。URL入力はブラウザのCORS制約の影響を受けます。</div>
         <div className="flex flex-wrap gap-2 text-sm text-slate-300">
           {demoMode ? <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-amber-100">Demo Mode</span> : null}
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Model: {modelName}</span>
+          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Model: {modelLabel}</span>
+          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">WebGPU: {browserReady ? (webGpuAvailable ? "available" : "not detected") : "checking..."}</span>
         </div>
       </section>
       <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="grid gap-6">
-          <ImageUploader onImageReady={(payload) => void handleImageReady(payload)} />
+          <ImageUploader onFileSelected={(file) => void handleUpload(file)} onUrlSubmit={(url) => void handleUrl(url)} />
           <AnalysisProgress step={step} />
           {error ? <div className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-red-200">{error}</div> : null}
         </div>

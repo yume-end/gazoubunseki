@@ -2,7 +2,7 @@ import type { AnalysisReport, ExplanationLevel } from "@/types/analysis";
 import { explanationForLevel } from "@/lib/analysis";
 
 export function AnalysisResult({ report, level }: { report: AnalysisReport; level: ExplanationLevel }) {
-  const explanation = explanationForLevel(report, level);
+  const explanationLines = explanationForLevel(report, level);
   return (
     <div className="grid gap-5 rounded-3xl border border-white/10 bg-panel/80 p-6">
       <div className="grid gap-3">
@@ -16,7 +16,30 @@ export function AnalysisResult({ report, level }: { report: AnalysisReport; leve
           <Score label="不確実性" value={report.overallAssessment.uncertaintyScore} />
         </div>
       </div>
-      <p className="rounded-2xl bg-white/5 p-4 text-sm leading-7">{explanation.body.join("\n")}</p>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <section className="rounded-2xl bg-white/5 p-4">
+          <h3 className="mb-3 font-semibold">Model Score</h3>
+          <ul className="grid gap-2 text-sm text-slate-200">
+            <li>・AI生成: {report.modelScores.aiGeneratedScore}%</li>
+            <li>・AI編集: {report.modelScores.aiEditedScore}%</li>
+            <li>・合成: {report.modelScores.compositeScore}%</li>
+            <li>・手描き: {report.modelScores.handDrawnScore}%</li>
+            <li>・普通の写真: {report.modelScores.ordinaryPhotoScore}%</li>
+            <li>・不確実性: {report.modelScores.uncertaintyScore}%</li>
+          </ul>
+        </section>
+        <section className="rounded-2xl bg-white/5 p-4">
+          <h3 className="mb-3 font-semibold">Derived Score</h3>
+          <ul className="grid gap-2 text-sm text-slate-200">
+            <li>・AI操作総合: {Math.round(report.derivedScores.aiManipulationScore * 100)}%</li>
+            <li>・整合性: {Math.round(report.derivedScores.consistencyScore * 100)}%</li>
+          </ul>
+        </section>
+      </div>
+
+      <p className="rounded-2xl bg-white/5 p-4 text-sm leading-7">{explanationLines.join("\n")}</p>
+
       <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm text-amber-100">
         Web image/source verification is not included in this zero-cost prototype.
       </div>
@@ -24,7 +47,9 @@ export function AnalysisResult({ report, level }: { report: AnalysisReport; leve
         <section className="rounded-2xl bg-white/5 p-4">
           <h3 className="mb-3 font-semibold">全体の証拠</h3>
           <ul className="grid gap-2 text-sm text-slate-200">
-            {report.globalEvidence.map((item) => <li key={`${item.type}-${item.description}`}>・{item.type}: {item.description}</li>)}
+            {report.globalEvidence.map((item) => (
+              <li key={`${item.type}-${item.description}`}>・{item.type}: {item.description}</li>
+            ))}
           </ul>
         </section>
         <section className="rounded-2xl bg-white/5 p-4">
@@ -50,7 +75,9 @@ export function AnalysisResult({ report, level }: { report: AnalysisReport; leve
                 <div>視覚信頼度 {Math.round(item.visualConfidence * 100)}%</div>
                 {item.possibleBrand ? <div>AI visual identification: {item.possibleBrand}</div> : null}
                 {item.possibleModel ? <div>Model: {item.possibleModel}</div> : null}
-                {item.suspiciousFeatures.map((feature) => <div key={`${item.id}-${feature.type}`}>・{feature.type}: {feature.description}</div>)}
+                {item.suspiciousFeatures.map((feature) => (
+                  <div key={`${item.id}-${feature.type}`}>・{feature.type}: {feature.description}</div>
+                ))}
               </div>
             </div>
           ))}
@@ -59,7 +86,7 @@ export function AnalysisResult({ report, level }: { report: AnalysisReport; leve
       <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-sm text-cyan-100">
         <div>分析は実験的な AI 画像真正性分析です。確定的な証拠ではありません。</div>
         <div className="mt-2 grid gap-1 text-xs text-cyan-100/80">
-          <div>Gemini request count: {report.diagnostics.requestCount}</div>
+          <div>request count: {report.diagnostics.requestCount}</div>
           <div>analysis duration: {report.diagnostics.durationMs}ms</div>
           <div>Demo Mode: {report.diagnostics.demoMode ? "on" : "off"}</div>
           <div>model: {report.diagnostics.model}</div>
