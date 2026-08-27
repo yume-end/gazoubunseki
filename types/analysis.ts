@@ -8,6 +8,15 @@ export type SuspiciousFeature = {
   description: string;
 };
 
+export type DetectedObject = {
+  id: string;
+  className: string;
+  confidence: number;
+  boundingBox: BoundingBox;
+  sourceLabel?: string;
+  cropDataUrl?: string;
+};
+
 export type ElementAnalysis = {
   id: string;
   name: string;
@@ -18,6 +27,7 @@ export type ElementAnalysis = {
   visualConfidence: number;
   boundingBox: BoundingBox | null;
   suspiciousFeatures: SuspiciousFeature[];
+  detection?: DetectedObject;
 };
 
 export type EvidenceItem = {
@@ -45,6 +55,7 @@ export type AnalysisReport = {
     aiManipulationScore: number;
     consistencyScore: number;
   };
+  detections: DetectedObject[];
   elements: ElementAnalysis[];
   globalEvidence: EvidenceItem[];
   limitations: string[];
@@ -55,6 +66,8 @@ export type AnalysisReport = {
     demoMode: boolean;
     model: string;
     webGpuAvailable: boolean;
+    backend: "webgpu" | "wasm" | "unavailable";
+    loadState: "idle" | "loading" | "ready" | "error";
   };
 };
 
