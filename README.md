@@ -139,6 +139,10 @@ npm run build
 - `mirror` は専用クラスではありません
 - この評価は実画像での定量結果ではなく、MVP 向けの対応表と実用確認の土台です
 
+## Manual Browser Test Checklist
+
+See [`evaluation/BROWSER_TEST_CHECKLIST.md`](./evaluation/BROWSER_TEST_CHECKLIST.md).
+
 ## 今後の予定
 
 - より精密な物体検出モデルへの交換

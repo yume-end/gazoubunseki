@@ -102,10 +102,10 @@ export default function Page() {
         loadState: detector.getState(),
         processingTimeMs: performance.now() - startedAt,
         backendFallback: {
-          occurred: backend !== finalBackend,
-          from: backend,
+          occurred: finalBackend !== (webGpuAvailable ? "webgpu" : "wasm"),
+          from: webGpuAvailable ? "webgpu" : "wasm",
           to: finalBackend,
-          reason: backend !== finalBackend ? "WebGPU 推論失敗のため WASM に切り替えました。" : null
+          reason: finalBackend === "wasm" && webGpuAvailable ? "WebGPU 推論失敗のため WASM に切り替えました。" : null
         },
         performance: {
           modelLoadTimeMs: detector.getStats().modelLoadTimeMs,
@@ -149,6 +149,7 @@ export default function Page() {
         <p className="max-w-3xl text-base leading-7 text-muted">画像の特徴を多角的に分析し、AI生成・加工・合成などの可能性を推定します。</p>
         <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-cyan-100">このMVPでは、アップロードした画像を外部AI APIへ送信せず、お使いのブラウザ上で解析します。</div>
         <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">モデルの初回ダウンロードなど、必要なネットワーク通信が発生する場合があります。URL入力はブラウザのCORS制約の影響を受けます。</div>
+        <div className="rounded-2xl border border-sky-300/30 bg-sky-300/10 px-4 py-3 text-sm text-sky-100">AI生成判定モデル: 未導入。現在はフォレンジック特徴からの暫定分析です。</div>
         <div className="flex flex-wrap gap-2 text-sm text-slate-300">
           {demoMode ? <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-amber-100">Demo Mode</span> : null}
           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Model: {modelLabel}</span>

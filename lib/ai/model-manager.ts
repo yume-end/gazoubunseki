@@ -3,6 +3,24 @@ import { LOCAL_OBJECT_DETECTION_MODEL, type InferenceBackend, type ObjectDetecto
 
 let detectorPromise: Promise<ObjectDetector> | null = null;
 
+type LoadContext = {
+  requestedBackend: Exclude<InferenceBackend, "unavailable"> | null;
+  fallbackOccurred: boolean;
+  fallbackFrom: Exclude<InferenceBackend, "unavailable"> | null;
+  fallbackTo: Exclude<InferenceBackend, "unavailable"> | null;
+  fallbackReason: string | null;
+};
+
+function createLoadContext(): LoadContext {
+  return {
+    requestedBackend: null,
+    fallbackOccurred: false,
+    fallbackFrom: null,
+    fallbackTo: null,
+    fallbackReason: null
+  };
+}
+
 function detectBackendPreference(): Exclude<InferenceBackend, "unavailable"> | "unavailable" {
   if (typeof navigator === "undefined") return "unavailable";
   const webgpuAvailable = Boolean((navigator as Navigator & { gpu?: unknown }).gpu);
@@ -39,6 +57,8 @@ class TransformersObjectDetector implements ObjectDetector {
   private backend: InferenceBackend = "unavailable";
   private error: string | null = null;
   private detector: Awaited<ReturnType<typeof pipeline>> | null = null;
+  private loadPromise: Promise<void> | null = null;
+  private loadContext: LoadContext = createLoadContext();
   private modelLoadTimeMs: number | null = null;
   private firstInferenceTimeMs: number | null = null;
   private subsequentInferenceTimeMs: number | null = null;
@@ -48,50 +68,74 @@ class TransformersObjectDetector implements ObjectDetector {
     const startedAt = performance.now();
     env.allowRemoteModels = true;
     env.useBrowserCache = true;
-    this.detector = await pipeline("object-detection", LOCAL_OBJECT_DETECTION_MODEL, { device: backend === "webgpu" ? "webgpu" : "wasm" });
-    this.modelLoadTimeMs = performance.now() - startedAt;
+    const localPipeline = await pipeline("object-detection", LOCAL_OBJECT_DETECTION_MODEL, {
+      device: backend === "webgpu" ? "webgpu" : "wasm"
+    });
+    this.detector = localPipeline;
+    this.modelLoadTimeMs = this.modelLoadTimeMs ?? performance.now() - startedAt;
     this.backend = backend;
     this.state = "ready";
   }
 
   async load(backendPreference?: Exclude<InferenceBackend, "unavailable">) {
-    if (this.detector || this.state === "loading") return;
+    if (this.detector) return;
+    if (this.loadPromise) return this.loadPromise;
+
     this.state = "loading";
     this.error = null;
+    this.loadContext = createLoadContext();
     const preferred = backendPreference ?? detectBackendPreference();
-    if (preferred === "unavailable") {
-      this.state = "error";
-      this.error = "このブラウザではAI推論を実行できません。";
-      throw new Error(this.error);
-    }
-    try {
-      await this.loadWithBackend(preferred);
-    } catch (err) {
-      if (preferred === "webgpu") {
-        const fallbackAttempt = await this.tryFallbackToWasm(err);
-        if (fallbackAttempt) return;
+    this.loadContext.requestedBackend = preferred !== "unavailable" ? preferred : null;
+
+    this.loadPromise = (async () => {
+      if (preferred === "unavailable") {
+        this.state = "error";
+        this.error = "このブラウザではAI推論を実行できません。";
+        throw new Error(this.error);
       }
-      this.state = "error";
-      this.error = err instanceof Error ? err.message : "モデルの読み込みに失敗しました。";
-      this.detector = null;
-      this.backend = preferred;
-      throw new Error(this.error);
+
+      try {
+        await this.loadWithBackend(preferred);
+      } catch (err) {
+        const primaryError = err instanceof Error ? err.message : "モデルの読み込みに失敗しました。";
+        if (preferred === "webgpu") {
+          this.loadContext.fallbackOccurred = true;
+          this.loadContext.fallbackFrom = "webgpu";
+          this.loadContext.fallbackTo = "wasm";
+          this.loadContext.fallbackReason = primaryError;
+          await this.fallbackToWasm();
+          return;
+        }
+
+        this.state = "error";
+        this.error = primaryError;
+        this.detector = null;
+        this.backend = preferred;
+        throw new Error(this.error);
+      }
+    })();
+
+    try {
+      await this.loadPromise;
+    } finally {
+      this.loadPromise = null;
     }
   }
 
-  private async tryFallbackToWasm(originalError: unknown) {
+  private async fallbackToWasm() {
+    this.state = "loading";
+    this.error = null;
+    this.detector = null;
+    this.backend = "unavailable";
+    this.loadPromise = null;
     try {
-      this.backend = "webgpu";
-      this.detector = null;
       await this.loadWithBackend("wasm");
-      this.error = null;
-      return true;
-    } catch (fallbackError) {
+    } catch (err) {
       this.state = "error";
-      this.error = fallbackError instanceof Error ? fallbackError.message : String(originalError ?? "WASM fallback failed");
+      this.error = err instanceof Error ? err.message : "WASM fallback failed.";
       this.detector = null;
       this.backend = "unavailable";
-      throw new Error(this.error);
+      throw err;
     }
   }
 
@@ -118,7 +162,11 @@ class TransformersObjectDetector implements ObjectDetector {
       return normalized;
     } catch (err) {
       if (this.backend === "webgpu") {
-        await this.discardAndFallbackToWasm();
+        this.loadContext.fallbackOccurred = true;
+        this.loadContext.fallbackFrom = "webgpu";
+        this.loadContext.fallbackTo = "wasm";
+        this.loadContext.fallbackReason = err instanceof Error ? err.message : "WebGPU inference failed.";
+        await this.fallbackToWasm();
         if (!this.detector) throw err instanceof Error ? err : new Error("WebGPU inference failed.");
         const retryStartedAt = performance.now();
         const result = await this.detector(image, { threshold: 0.2 });
@@ -135,20 +183,6 @@ class TransformersObjectDetector implements ObjectDetector {
         }
         return normalized;
       }
-      throw err;
-    }
-  }
-
-  private async discardAndFallbackToWasm() {
-    this.state = "loading";
-    this.error = null;
-    this.detector = null;
-    try {
-      await this.loadWithBackend("wasm");
-    } catch (err) {
-      this.state = "error";
-      this.error = err instanceof Error ? err.message : "WASM fallback failed.";
-      this.backend = "unavailable";
       throw err;
     }
   }
