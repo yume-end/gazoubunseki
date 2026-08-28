@@ -1,4 +1,8 @@
-import { env, pipeline } from "@huggingface/transformers";
+import {
+  env,
+  pipeline,
+  type ObjectDetectionPipelineType,
+} from "@huggingface/transformers";
 import { LOCAL_OBJECT_DETECTION_MODEL, type InferenceBackend, type ObjectDetector, type RawDetection, type DetectorLoadState, type DetectedObjectResult } from "@/lib/ai-types";
 
 let detectorPromise: Promise<ObjectDetector> | null = null;
@@ -56,7 +60,7 @@ class TransformersObjectDetector implements ObjectDetector {
   private state: DetectorLoadState = "idle";
   private backend: InferenceBackend = "unavailable";
   private error: string | null = null;
-  private detector: Awaited<ReturnType<typeof pipeline>> | null = null;
+  private detector: ObjectDetectionPipelineType | null = null;
   private loadPromise: Promise<void> | null = null;
   private loadContext: LoadContext = createLoadContext();
   private modelLoadTimeMs: number | null = null;
@@ -69,21 +73,21 @@ class TransformersObjectDetector implements ObjectDetector {
     env.allowRemoteModels = true;
     env.useBrowserCache = true;
     const pipelineOptions =
-  backend === "webgpu"
-    ? { device: "webgpu" as const }
-    : undefined;
+      backend === "webgpu"
+        ? { device: "webgpu" as const }
+        : undefined;
 
-const localPipeline =
-  pipelineOptions === undefined
-    ? await pipeline(
-        "object-detection",
-        LOCAL_OBJECT_DETECTION_MODEL
-      )
-    : await pipeline(
-        "object-detection",
-        LOCAL_OBJECT_DETECTION_MODEL,
-        pipelineOptions
-      );
+    const localPipeline =
+      pipelineOptions === undefined
+        ? await pipeline(
+          "object-detection",
+          LOCAL_OBJECT_DETECTION_MODEL
+        )
+        : await pipeline(
+          "object-detection",
+          LOCAL_OBJECT_DETECTION_MODEL,
+          pipelineOptions
+        );
     this.detector = localPipeline;
     this.modelLoadTimeMs = this.modelLoadTimeMs ?? performance.now() - startedAt;
     this.backend = backend;
@@ -159,11 +163,27 @@ const localPipeline =
     if (!this.detector) throw new Error(this.error ?? "モデルが読み込まれていません。");
 
     const startedAt = performance.now();
+
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("画像処理用のCanvasを作成できませんでした。");
+    }
+
+    if (image instanceof ImageData) {
+      context.putImageData(image, 0, 0);
+    } else {
+      context.drawImage(image, 0, 0, image.width, image.height);
+    }
+
     try {
-      const result = await this.detector(image, { threshold: 0.2 });
+      const result = await this.detector(canvas, { threshold: 0.2 });
       const detections = Array.isArray(result) ? result : [];
-      const width = "width" in image ? image.width : 1;
-      const height = "height" in image ? image.height : 1;
+      const width = canvas.width;
+      const height = canvas.height;
       const normalized = normalizeDetections(detections as RawDetection[], width, height);
       const duration = performance.now() - startedAt;
       if (!this.didFirstInference) {
@@ -182,10 +202,10 @@ const localPipeline =
         await this.fallbackToWasm();
         if (!this.detector) throw err instanceof Error ? err : new Error("WebGPU inference failed.");
         const retryStartedAt = performance.now();
-        const result = await this.detector(image, { threshold: 0.2 });
+        const result = await this.detector(canvas, { threshold: 0.2 });
         const detections = Array.isArray(result) ? result : [];
-        const width = "width" in image ? image.width : 1;
-        const height = "height" in image ? image.height : 1;
+        const width = canvas.width;
+        const height = canvas.height;
         const normalized = normalizeDetections(detections as RawDetection[], width, height);
         const duration = performance.now() - retryStartedAt;
         if (!this.didFirstInference) {
