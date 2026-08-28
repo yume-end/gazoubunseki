@@ -1,4 +1,4 @@
-import type { BoundingBox, DetectedObject, ElementAnalysis, EvidenceItem, LocalImageMetrics } from "@/types/analysis";
+import type { BoundingBox, DetectedObject, EvidenceItem, LocalImageMetrics } from "@/types/analysis";
 
 const FORNSIC_CLASS_WEIGHTS: Record<string, { importance: number; evidence: string[] }> = {
   person: { importance: 0.95, evidence: ["人物は人体構造や手指の整合性確認に有用です。"] },
@@ -76,7 +76,7 @@ export function cropImageDataUrl(source: HTMLImageElement, box: BoundingBox) {
   return canvas.toDataURL("image/png");
 }
 
-export function createElementAnalyses(detections: DetectedObject[], metrics: LocalImageMetrics): ElementAnalysis[] {
+export function createElementAnalyses(detections: DetectedObject[], metrics: LocalImageMetrics) {
   return detections.map((detection) => {
     const relevance = relevanceForClass(detection.className);
     const suspiciousFeatures = [
