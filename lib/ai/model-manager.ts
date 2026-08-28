@@ -68,9 +68,22 @@ class TransformersObjectDetector implements ObjectDetector {
     const startedAt = performance.now();
     env.allowRemoteModels = true;
     env.useBrowserCache = true;
-    const localPipeline = await pipeline("object-detection", LOCAL_OBJECT_DETECTION_MODEL, {
-      device: backend === "webgpu" ? "webgpu" : "wasm"
-    });
+    const pipelineOptions =
+  backend === "webgpu"
+    ? { device: "webgpu" as const }
+    : undefined;
+
+const localPipeline =
+  pipelineOptions === undefined
+    ? await pipeline(
+        "object-detection",
+        LOCAL_OBJECT_DETECTION_MODEL
+      )
+    : await pipeline(
+        "object-detection",
+        LOCAL_OBJECT_DETECTION_MODEL,
+        pipelineOptions
+      );
     this.detector = localPipeline;
     this.modelLoadTimeMs = this.modelLoadTimeMs ?? performance.now() - startedAt;
     this.backend = backend;
