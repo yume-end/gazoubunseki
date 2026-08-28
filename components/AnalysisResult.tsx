@@ -73,7 +73,9 @@ export function AnalysisResult({ report, level }: { report: AnalysisReport; leve
               </div>
               <div className="mt-3 grid gap-2 text-sm text-slate-200">
                 <div>検出信頼度 {Math.round(item.visualConfidence * 100)}%</div>
-                {typeof item.relevanceScore === "number" ? <div>フォレンジック重要度 {Math.round(item.relevanceScore * 100)}%</div> : null}
+                {typeof item.forensicRelevance === "number" ? (
+      <div>フォレンジック重要度 {Math.round(item.forensicRelevance * 100)}%</div>
+    ) : null}
                 {item.possibleBrand ? <div>AI visual identification: {item.possibleBrand}</div> : null}
                 {item.possibleModel ? <div>Model: {item.possibleModel}</div> : null}
                 {item.suspiciousFeatures.map((feature) => (
