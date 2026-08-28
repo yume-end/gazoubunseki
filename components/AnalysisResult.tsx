@@ -1,8 +1,10 @@
 import type { AnalysisReport, ExplanationLevel } from "@/types/analysis";
 import { explanationForLevel } from "@/lib/analysis";
+import { buildYolosEvaluationSummary } from "@/lib/ai/evaluation";
 
 export function AnalysisResult({ report, level }: { report: AnalysisReport; level: ExplanationLevel }) {
   const explanationLines = explanationForLevel(report, level);
+  const evaluation = buildYolosEvaluationSummary(report.detections.length);
   return (
     <div className="grid gap-5 rounded-3xl border border-white/10 bg-panel/80 p-6">
       <div className="grid gap-3">
@@ -21,11 +23,11 @@ export function AnalysisResult({ report, level }: { report: AnalysisReport; leve
         <section className="rounded-2xl bg-white/5 p-4">
           <h3 className="mb-3 font-semibold">Model Score</h3>
           <ul className="grid gap-2 text-sm text-slate-200">
-            <li>・AI生成: {report.modelScores.aiGeneratedScore}%</li>
-            <li>・AI編集: {report.modelScores.aiEditedScore}%</li>
-            <li>・合成: {report.modelScores.compositeScore}%</li>
-            <li>・手描き: {report.modelScores.handDrawnScore}%</li>
-            <li>・普通の写真: {report.modelScores.ordinaryPhotoScore}%</li>
+            <li>・AI生成: {report.modelScores.aiGeneratedScore == null ? "未導入" : `${report.modelScores.aiGeneratedScore}%`}</li>
+            <li>・AI編集: {report.modelScores.aiEditedScore == null ? "未導入" : `${report.modelScores.aiEditedScore}%`}</li>
+            <li>・合成: {report.modelScores.compositeScore == null ? "未導入" : `${report.modelScores.compositeScore}%`}</li>
+            <li>・手描き: {report.modelScores.handDrawnScore == null ? "未導入" : `${report.modelScores.handDrawnScore}%`}</li>
+            <li>・普通の写真: {report.modelScores.ordinaryPhotoScore == null ? "未導入" : `${report.modelScores.ordinaryPhotoScore}%`}</li>
             <li>・不確実性: {report.modelScores.uncertaintyScore}%</li>
           </ul>
         </section>
@@ -40,16 +42,14 @@ export function AnalysisResult({ report, level }: { report: AnalysisReport; leve
 
       <p className="rounded-2xl bg-white/5 p-4 text-sm leading-7">{explanationLines.join("\n")}</p>
 
-      <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm text-amber-100">
-        Web image/source verification is not included in this zero-cost prototype.
-      </div>
       <div className="grid gap-4 md:grid-cols-2">
         <section className="rounded-2xl bg-white/5 p-4">
-          <h3 className="mb-3 font-semibold">全体の証拠</h3>
+          <h3 className="mb-3 font-semibold">YOLOS-tiny Evaluation</h3>
           <ul className="grid gap-2 text-sm text-slate-200">
-            {report.globalEvidence.map((item) => (
-              <li key={`${item.type}-${item.description}`}>・{item.type}: {item.description}</li>
-            ))}
+            <li>・Model: {evaluation.model}</li>
+            <li>・Images tested: {evaluation.imagesTested}</li>
+            <li>・air conditioner: not supported by current model</li>
+            <li>・mirror: not a dedicated class in current model</li>
           </ul>
         </section>
         <section className="rounded-2xl bg-white/5 p-4">
@@ -72,7 +72,8 @@ export function AnalysisResult({ report, level }: { report: AnalysisReport; leve
                 <div className="text-sm text-muted">重要度 {Math.round(item.importance * 100)}%</div>
               </div>
               <div className="mt-3 grid gap-2 text-sm text-slate-200">
-                <div>視覚信頼度 {Math.round(item.visualConfidence * 100)}%</div>
+                <div>検出信頼度 {Math.round(item.visualConfidence * 100)}%</div>
+                {typeof item.relevanceScore === "number" ? <div>フォレンジック重要度 {Math.round(item.relevanceScore * 100)}%</div> : null}
                 {item.possibleBrand ? <div>AI visual identification: {item.possibleBrand}</div> : null}
                 {item.possibleModel ? <div>Model: {item.possibleModel}</div> : null}
                 {item.suspiciousFeatures.map((feature) => (
@@ -90,17 +91,24 @@ export function AnalysisResult({ report, level }: { report: AnalysisReport; leve
           <div>analysis duration: {report.diagnostics.durationMs}ms</div>
           <div>Demo Mode: {report.diagnostics.demoMode ? "on" : "off"}</div>
           <div>model: {report.diagnostics.model}</div>
+          <div>inference backend: {report.processingInfo.inferenceBackend}</div>
+          <div>model load: {report.processingInfo.performance.modelLoadTimeMs ?? "n/a"}ms</div>
+          <div>first inference: {report.processingInfo.performance.firstInferenceTimeMs ?? "n/a"}ms</div>
+          <div>subsequent inference: {report.processingInfo.performance.subsequentInferenceTimeMs ?? "n/a"}ms</div>
+          <div>preprocessing: {report.processingInfo.performance.preprocessingTimeMs ?? "n/a"}ms</div>
+          <div>total inference: {report.processingInfo.performance.totalInferenceTimeMs ?? "n/a"}ms</div>
+          <div>fallback: {report.processingInfo.backendFallback.occurred ? `${report.processingInfo.backendFallback.from} → ${report.processingInfo.backendFallback.to}` : "none"}</div>
         </div>
       </div>
     </div>
   );
 }
 
-function Score({ label, value }: { label: string; value: number }) {
+function Score({ label, value }: { label: string; value: number | null }) {
   return (
     <div className="rounded-2xl bg-white/5 p-4">
       <div className="text-sm text-muted">{label}</div>
-      <div className="mt-1 text-2xl font-bold">{value}%</div>
+      <div className="mt-1 text-2xl font-bold">{value == null ? "未導入" : `${value}%`}</div>
     </div>
   );
 }

@@ -40,7 +40,7 @@
 
 採用理由:
 
-- 軽量で MVP に向いている
+- ブラウザで動かしやすい軽量モデル
 - 物体検出の基本をブラウザ内で実現しやすい
 - WebGPU 優先、WASM フォールバックの構成にしやすい
 - 将来、より大きい検出モデルへ交換しやすい
@@ -131,6 +131,13 @@ npm run build
 - AI生成を確定するものではありません
 - URL入力は CORS の制約を受けます
 - モデルの初回ロードは時間がかかる場合があります
+
+## YOLOS-tiny Evaluation
+
+- `person`, `tv`, `laptop`, `chair`, `couch`, `bed`, `dining table`, `cell phone`, `book`, `bottle`, `cup`, `clock` は COCO に対応します
+- `air conditioner` は YOLOS-tiny で直接検出できません
+- `mirror` は専用クラスではありません
+- この評価は実画像での定量結果ではなく、MVP 向けの対応表と実用確認の土台です
 
 ## 今後の予定
 

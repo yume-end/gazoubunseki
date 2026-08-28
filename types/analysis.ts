@@ -15,6 +15,8 @@ export type DetectedObject = {
   boundingBox: BoundingBox;
   sourceLabel?: string;
   cropDataUrl?: string;
+  forensicRelevance?: number;
+  relevanceScore?: number;
 };
 
 export type ElementAnalysis = {
@@ -37,12 +39,34 @@ export type EvidenceItem = {
 };
 
 export type OverallAssessment = {
-  aiGeneratedScore: number;
-  aiEditedScore: number;
-  compositeScore: number;
-  handDrawnScore: number;
-  ordinaryPhotoScore: number;
+  aiGeneratedScore: number | null;
+  aiEditedScore: number | null;
+  compositeScore: number | null;
+  handDrawnScore: number | null;
+  ordinaryPhotoScore: number | null;
   uncertaintyScore: number;
+};
+
+export type PerformanceInfo = {
+  modelLoadTimeMs: number | null;
+  firstInferenceTimeMs: number | null;
+  subsequentInferenceTimeMs: number | null;
+  preprocessingTimeMs: number | null;
+  totalInferenceTimeMs: number | null;
+};
+
+export type ProcessingInfo = {
+  inferenceBackend: "webgpu" | "wasm" | "unavailable";
+  objectDetectionModel: string;
+  modelVersion: string | null;
+  processingTimeMs: number;
+  backendFallback: {
+    occurred: boolean;
+    from: "webgpu" | "wasm" | "unavailable" | null;
+    to: "webgpu" | "wasm" | "unavailable" | null;
+    reason: string | null;
+  };
+  performance: PerformanceInfo;
 };
 
 export type AnalysisReport = {
@@ -60,6 +84,7 @@ export type AnalysisReport = {
   globalEvidence: EvidenceItem[];
   limitations: string[];
   reasons: string[];
+  processingInfo: ProcessingInfo;
   diagnostics: {
     requestCount: number;
     durationMs: number;

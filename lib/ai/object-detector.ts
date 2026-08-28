@@ -1,12 +1,12 @@
 import type { BoundingBox, DetectedObject, ElementAnalysis, EvidenceItem, LocalImageMetrics } from "@/types/analysis";
 
-const FORENSIC_CLASS_WEIGHTS: Record<string, { importance: number; evidence: string[] }> = {
+const FORNSIC_CLASS_WEIGHTS: Record<string, { importance: number; evidence: string[] }> = {
   person: { importance: 0.95, evidence: ["人物は人体構造や手指の整合性確認に有用です。"] },
   face: { importance: 0.96, evidence: ["顔は境界や目鼻口の不整合確認に有用です。"] },
   tv: { importance: 0.82, evidence: ["テレビはロゴ、反射、画面境界の確認に有用です。"] },
   laptop: { importance: 0.88, evidence: ["PCは画面反射やキーボード配置の整合性確認に有用です。"] },
   keyboard: { importance: 0.72, evidence: ["反復配列の自然さを確認できます。"] },
-  cell phone: { importance: 0.84, evidence: ["端末は反射やエッジの整合性確認に有用です。"] },
+  "cell phone": { importance: 0.84, evidence: ["端末は反射やエッジの整合性確認に有用です。"] },
   book: { importance: 0.55, evidence: ["テキストや矩形境界の確認に使えます。"] },
   bottle: { importance: 0.5, evidence: ["透明物体や反射の分析に使えます。"] },
   cup: { importance: 0.48, evidence: ["反射や影の整合性確認に使えます。"] },
@@ -45,12 +45,15 @@ export function selectRelevantObjects(objects: DetectedObject[], threshold = 0.3
     .map((obj) => {
       const relevance = relevanceForClass(obj.className);
       const relevanceScore = obj.confidence * relevance.importance;
-      return { obj, relevanceScore };
+      return {
+        ...obj,
+        forensicRelevance: relevance.importance,
+        relevanceScore
+      };
     })
-    .filter((item) => item.obj.confidence >= threshold || item.relevanceScore >= 0.3)
-    .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .slice(0, 6)
-    .map((item) => item.obj);
+    .filter((item) => item.confidence >= threshold || (item.relevanceScore ?? 0) >= 0.3)
+    .sort((a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0))
+    .slice(0, 6);
 }
 
 export function boxToPixelRect(box: BoundingBox, width: number, height: number) {

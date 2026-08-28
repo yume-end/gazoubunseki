@@ -1,4 +1,4 @@
-import type { AnalysisReport, DetectedObject, ElementAnalysis, EvidenceItem, LocalImageMetrics, OverallAssessment } from "@/types/analysis";
+import type { AnalysisReport, DetectedObject, ElementAnalysis, EvidenceItem, LocalImageMetrics } from "@/types/analysis";
 import { createElementAnalyses, detectionsToEvidence, selectRelevantObjects } from "@/lib/ai/object-detector";
 
 function clamp(value: number, min = 0, max = 1) {
@@ -10,6 +10,7 @@ export function detectWebGpuSupport() {
 }
 
 export async function analyzeImageLocally(img: HTMLImageElement): Promise<LocalImageMetrics> {
+  const startedAt = performance.now();
   const canvas = document.createElement("canvas");
   const maxSide = 640;
   const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
@@ -130,6 +131,20 @@ export function buildForensicReport(params: {
   fileName: string;
   mimeType: string;
   loadState: "idle" | "loading" | "ready" | "error";
+  processingTimeMs: number;
+  performance: {
+    modelLoadTimeMs: number | null;
+    firstInferenceTimeMs: number | null;
+    subsequentInferenceTimeMs: number | null;
+    preprocessingTimeMs: number | null;
+    totalInferenceTimeMs: number | null;
+  };
+  backendFallback: {
+    occurred: boolean;
+    from: "webgpu" | "wasm" | "unavailable" | null;
+    to: "webgpu" | "wasm" | "unavailable" | null;
+    reason: string | null;
+  };
 }): AnalysisReport {
   const relevantDetections = selectRelevantObjects(params.detections);
   const elements = createElementAnalyses(relevantDetections, params.metrics);
@@ -185,9 +200,17 @@ export function buildForensicReport(params: {
     globalEvidence,
     limitations,
     reasons,
+    processingInfo: {
+      inferenceBackend: params.backend,
+      objectDetectionModel: "Xenova/yolos-tiny",
+      modelVersion: "transformers.js/object-detection/v1",
+      processingTimeMs: params.processingTimeMs,
+      backendFallback: params.backendFallback,
+      performance: params.performance
+    },
     diagnostics: {
       requestCount: 1,
-      durationMs: 0,
+      durationMs: params.processingTimeMs,
       demoMode: params.demoMode,
       model: params.backend === "unavailable" ? "unavailable" : `transformers.js ${params.backend}`,
       webGpuAvailable: params.webGpuAvailable,

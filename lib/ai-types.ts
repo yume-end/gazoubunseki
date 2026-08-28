@@ -1,4 +1,5 @@
 export const LOCAL_OBJECT_DETECTION_MODEL = "Xenova/yolos-tiny";
+export const LOCAL_OBJECT_DETECTION_VERSION = "transformers.js/object-detection/v1";
 
 export type InferenceBackend = "webgpu" | "wasm" | "unavailable";
 
@@ -11,10 +12,23 @@ export type RawDetection = {
 };
 
 export type ObjectDetector = {
-  load(): Promise<void>;
-  detect(image: HTMLImageElement | ImageBitmap | ImageData): Promise<RawDetection[]>;
+  load(backendPreference?: Exclude<InferenceBackend, "unavailable">): Promise<void>;
+  detect(image: HTMLImageElement | ImageBitmap | ImageData): Promise<DetectedObjectResult[]>;
   dispose(): Promise<void>;
   getBackend(): InferenceBackend;
   getState(): DetectorLoadState;
   getError(): string | null;
+  getStats(): {
+    modelLoadTimeMs: number | null;
+    firstInferenceTimeMs: number | null;
+    subsequentInferenceTimeMs: number | null;
+  };
+};
+
+export type DetectedObjectResult = {
+  id: string;
+  className: string;
+  confidence: number;
+  boundingBox: { x: number; y: number; width: number; height: number };
+  sourceLabel: string;
 };

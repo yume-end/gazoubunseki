@@ -57,6 +57,7 @@ export default function Page() {
   }
 
   async function runAnalysis(dataUrl: string, sourceType: "upload" | "url", name: string, mimeType: string) {
+    const startedAt = performance.now();
     setPreview(dataUrl);
     setError(null);
     setModelError(null);
@@ -65,15 +66,29 @@ export default function Page() {
 
     try {
       const detector = await ensureDetectorReady();
+      const imageLoadStartedAt = performance.now();
       const img = await loadImageFromDataUrl(dataUrl);
+      const preprocessingStartedAt = performance.now();
       setStep("画像の特徴を分析しています...");
       const metrics = await analyzeImageLocally(img);
+      const preprocessingTimeMs = performance.now() - preprocessingStartedAt;
+
       setStep("重要な要素を検出しています...");
-      const rawDetections = await detector.detect(img);
+      const firstInferenceStartedAt = performance.now();
+      const firstDetections = await detector.detect(img);
+      const firstInferenceTimeMs = performance.now() - firstInferenceStartedAt;
+
+      const secondInferenceStartedAt = performance.now();
+      const secondDetections = await detector.detect(img);
+      const subsequentInferenceTimeMs = performance.now() - secondInferenceStartedAt;
+
+      const finalBackend = detector.getBackend();
+      setBackend(finalBackend);
       setStep("不自然な特徴を確認しています...");
+      const detections = secondDetections.length > 0 ? secondDetections : firstDetections;
       const reportData = buildForensicReport({
         metrics,
-        detections: rawDetections.map((detection, index) => ({
+        detections: detections.map((detection, index) => ({
           ...detection,
           cropDataUrl: cropImageDataUrl(img, detection.boundingBox) ?? undefined,
           sourceLabel: detection.sourceLabel ?? detection.className,
@@ -81,10 +96,24 @@ export default function Page() {
         })),
         demoMode,
         webGpuAvailable,
-        backend,
+        backend: finalBackend,
         fileName: name,
         mimeType,
-        loadState: detector.getState()
+        loadState: detector.getState(),
+        processingTimeMs: performance.now() - startedAt,
+        backendFallback: {
+          occurred: backend !== finalBackend,
+          from: backend,
+          to: finalBackend,
+          reason: backend !== finalBackend ? "WebGPU 推論失敗のため WASM に切り替えました。" : null
+        },
+        performance: {
+          modelLoadTimeMs: detector.getStats().modelLoadTimeMs,
+          firstInferenceTimeMs,
+          subsequentInferenceTimeMs,
+          preprocessingTimeMs,
+          totalInferenceTimeMs: performance.now() - imageLoadStartedAt
+        }
       });
       setStep("証拠を統合しています...");
       setReport({ ...reportData, imageSource: { type: sourceType, name, mimeType } });
