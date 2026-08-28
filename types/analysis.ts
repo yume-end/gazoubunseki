@@ -27,6 +27,7 @@ export type ElementAnalysis = {
   possibleBrand: string | null;
   possibleModel: string | null;
   visualConfidence: number;
+  forensicRelevance?: number;
   boundingBox: BoundingBox | null;
   suspiciousFeatures: SuspiciousFeature[];
   detection?: DetectedObject;
